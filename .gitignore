@@ -13,3 +13,7 @@ coverage
 # Corpus is built at deploy; sources are pulled fresh each time.
 public/corpus.json
 .corpus-cache/
+
+# Blog repo checkout cloned at vercel-build time. Never commit.
+blog-portfolio-v3/
+tsconfig.tsbuildinfo

@@ -23,6 +23,9 @@ importers:
       framer-motion:
         specifier: ^11.18.2
         version: 11.18.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      mdx-corpus:
+        specifier: ^0.1.0
+        version: 0.1.0
       next:
         specifier: ^16.0.0
         version: 16.2.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -32,6 +35,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.6(react@19.2.6)
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.0
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -54,15 +60,9 @@ importers:
       eslint-config-next:
         specifier: ^16.0.0
         version: 16.2.6(@typescript-eslint/parser@8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
-      mdx-corpus:
-        specifier: file:../mdx-corpus
-        version: file:../mdx-corpus
       tailwindcss:
         specifier: ^4.0.0
         version: 4.3.0
-      tsx:
-        specifier: ^4.19.2
-        version: 4.22.0
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
@@ -2091,8 +2091,8 @@ packages:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
 
-  mdx-corpus@file:../mdx-corpus:
-    resolution: {directory: ../mdx-corpus, type: directory}
+  mdx-corpus@0.1.0:
+    resolution: {integrity: sha512-Uk8Hmq2A9m9We/Hq9p4I+iB1S7I5L0NE7qJXvjVhPDwDFFc4wGAxokJfa0jBZ+luDEWGbJ8EVNb+aXJ/1WXOCQ==}
     engines: {node: '>=20'}
 
   merge2@1.4.1:
@@ -4655,7 +4655,7 @@ snapshots:
 
   math-intrinsics@1.1.0: {}
 
-  mdx-corpus@file:../mdx-corpus: {}
+  mdx-corpus@0.1.0: {}
 
   merge2@1.4.1: {}
 
