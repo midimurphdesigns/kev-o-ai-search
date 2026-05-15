@@ -1,75 +1,43 @@
-import { anthropic } from '@ai-sdk/anthropic';
-import { streamText, convertToCoreMessages, type CoreMessage } from 'ai';
-import { z } from 'zod';
-import { retrieve } from '@/lib/retrieve';
-import { buildSystemPrompt } from '@/lib/kev-o-prompt';
-import { checkLimits, chargeUsd, getClientIp, isOwner } from '@/lib/rate-limit';
-import { SONNET_PRICING } from '@/lib/brand';
+/**
+ * Thin proxy: forwards Kev-O chat requests to the canonical /api/kev-o
+ * endpoint on the main site.
+ *
+ * The subdomain (kev-o.kevinmurphywebdev.com) is now a "full-page Kev-O
+ * experience" — a standalone URL hiring managers can share. All retrieval,
+ * voice, and rate-limit logic lives on the main site so there's one source
+ * of truth. This subdomain just renders the chat surface and proxies the
+ * stream.
+ */
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const BodySchema = z.object({
-  messages: z
-    .array(
-      z.object({
-        role: z.enum(['user', 'assistant', 'system']),
-        content: z.string().max(8_000),
-      }),
-    )
-    .min(1)
-    .max(20),
-});
+const UPSTREAM = process.env.KEV_O_UPSTREAM ?? 'https://kevinmurphywebdev.com/api/kev-o';
 
-export async function POST(req: Request) {
-  let parsed;
-  try {
-    parsed = BodySchema.parse(await req.json());
-  } catch {
-    return Response.json({ error: 'invalid body' }, { status: 400 });
-  }
+export async function POST(req: Request): Promise<Response> {
+  const body = await req.text();
+  // Forward the client IP so the upstream rate-limiter sees the real visitor,
+  // not the Vercel-edge IP of the subdomain runtime.
+  const forwardedFor =
+    req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? 'unknown';
 
-  // Rate limit / budget gate. Owner bypasses both.
-  if (!isOwner(req)) {
-    const limit = await checkLimits(getClientIp(req));
-    if (!limit.ok) {
-      return Response.json(
-        { error: limit.message },
-        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } },
-      );
-    }
-  }
-
-  // Retrieve over the latest user turn. Keeps retrieval simple and intent-aligned;
-  // multi-turn rewriting is a v2 problem.
-  const lastUser = [...parsed.messages].reverse().find((m) => m.role === 'user');
-  const query = lastUser?.content ?? '';
-  const passages = await retrieve(query);
-  const system = buildSystemPrompt(passages);
-
-  const messages: CoreMessage[] = convertToCoreMessages(
-    parsed.messages.filter((m) => m.role !== 'system'),
-  );
-
-  const result = streamText({
-    model: anthropic('claude-sonnet-4-6'),
-    system,
-    messages,
-    temperature: 0.4,
-    maxTokens: 800,
-    // Prompt-cache the system block — it changes only when retrieval results
-    // differ, which still gives multi-turn conversations a cheap re-read.
-    providerOptions: {
-      anthropic: {
-        cacheControl: { type: 'ephemeral' },
-      },
+  const upstream = await fetch(UPSTREAM, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Forwarded-For': forwardedFor,
+      // Forward owner-bypass cookie if present so testing works.
+      ...(req.headers.get('cookie') ? { Cookie: req.headers.get('cookie')! } : {}),
     },
-    onFinish: async ({ usage }) => {
-      const inputUsd = (usage.promptTokens / 1_000_000) * SONNET_PRICING.inputPerMTok;
-      const outputUsd = (usage.completionTokens / 1_000_000) * SONNET_PRICING.outputPerMTok;
-      await chargeUsd(inputUsd + outputUsd);
-    },
+    body,
   });
 
-  return result.toDataStreamResponse();
+  // Stream the upstream response straight back. AI SDK uses chunked text;
+  // no transformation needed.
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers: {
+      'Content-Type': upstream.headers.get('Content-Type') ?? 'text/plain; charset=utf-8',
+    },
+  });
 }

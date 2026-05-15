@@ -4,7 +4,8 @@ import { useChat } from 'ai/react';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { KevOAvatar, type KevOState } from './KevOAvatar';
-import { KEVO_GREETING } from '@/lib/kev-o-prompt';
+const KEVO_GREETING =
+  "Alright, I'm Kev-O. I know everything Kevin has put on the public record. Ask me about the federal-scale work, the open-source AI artifacts, why an anthropology major writes TypeScript, whatever. Try to stump me.";
 import { renderMessageHtml } from './render-markdown';
 
 type Props = {
