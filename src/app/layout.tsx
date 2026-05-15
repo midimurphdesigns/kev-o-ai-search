@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import Cursor from '@/components/Cursor';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://kev-o.kevinmurphywebdev.com'),
@@ -31,7 +32,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="grain">{children}</body>
+      <body className="grain">
+        <Cursor />
+        {children}
+      </body>
     </html>
   );
 }
