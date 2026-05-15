@@ -345,24 +345,42 @@ html, body {
   opacity: 1;
 }
 
-/* State: error — color drops, motion stops, glow vanishes */
+/* Error state — Kev-O is offline (rate-limited, daily cap, upstream
+ * down, etc.). The visual goal is "paused with intent," not "broken."
+ * Rotation stops so the avatar isn't pretending to think. A slow 3.5s
+ * dim breath cycles so the visitor sees it's still *aware*, just
+ * waiting. Hue stays in the cyan family (desaturated, dim) instead of
+ * dropping to gray — brand-coherent failure mode. The rhombus shrink
+ * happens center-anchored so it doesn't drift toward a corner. */
 .kevo-avatar[data-state='error'] {
-  filter: drop-shadow(0 0 0 transparent);
+  filter: drop-shadow(0 0 6px rgba(77, 255, 255, 0.12));
+  animation: kevo-error-breath 3.5s ease-in-out infinite;
 }
 .kevo-avatar[data-state='error'] .kevo-spin--outer,
 .kevo-avatar[data-state='error'] .kevo-spin--inner {
   animation: none;
+  transform-origin: center;
 }
 .kevo-avatar[data-state='error'] .kevo-rhombus--outer {
-  border-color: var(--color-ink-faint);
-  opacity: 0.4;
+  border-color: rgba(77, 255, 255, 0.32);
+  opacity: 0.55;
+  transform-origin: center;
   transform: scale(0.92);
   box-shadow: none;
 }
 .kevo-avatar[data-state='error'] .kevo-rhombus--inner {
-  background: var(--color-ink-faint);
-  opacity: 0.35;
+  background: rgba(77, 255, 255, 0.28);
+  opacity: 0.5;
+  transform-origin: center;
   transform: scale(0.85);
+}
+.kevo-avatar[data-state='error'] .kevo-trail,
+.kevo-avatar[data-state='error'] .kevo-scan {
+  display: none;
+}
+@keyframes kevo-error-breath {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.95; }
 }
 
 /* Outer rotation choreography. Read the % stops + the angle deltas

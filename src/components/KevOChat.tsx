@@ -66,8 +66,21 @@ export function KevOChat({ starters }: Props) {
 
   return (
     <div className="flex flex-col gap-10">
-      <div className="flex items-end gap-6">
-        <KevOPortrait state={state} size={84} />
+      {/* Avatar + greeting row. gap-9 (md:gap-12) gives the rhombus
+        * enough breathing room from the italic display text — the
+        * rhombus extends past its container visually and a tighter
+        * gap was making them feel collided. Flex-col on the avatar
+        * stack so an "offline" caption can sit beneath when state=error
+        * without disrupting the row baseline. */}
+      <div className="flex items-end gap-9 md:gap-12">
+        <div className="flex flex-col items-center gap-2 shrink-0">
+          <KevOPortrait state={state} size={84} />
+          {state === 'error' ? (
+            <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-[color:var(--color-ink-faint)]">
+              offline
+            </span>
+          ) : null}
+        </div>
         <p className="font-display italic text-[clamp(22px,2.6vw,28px)] leading-[1.2] text-[color:var(--color-ink-muted)]">
           {KEVO_GREETING}
         </p>
