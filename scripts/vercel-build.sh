@@ -28,11 +28,36 @@ fi
 
 BLOG_REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${BLOG_REPO_OWNER}/${BLOG_REPO_NAME}.git"
 
+# Use glob-style patterns (non-cone sparse-checkout) so root-level files
+# like mdx-components.tsx and next.config.ts are NEVER materialized.
+# Cone mode would auto-include root files alongside the selected dirs,
+# which puts .tsx files at ./blog-portfolio-v3/*.tsx and triggers Next's
+# TypeScript checker to compile them as part of kev-o-ai-search.
+SPARSE_PATTERNS=("/src/content/" "/src/data/")
+
+# Sparse clone so we only pull the three directories the corpus actually
+# reads (blog MDX, project MDX, resume.json). Critically this leaves NO
+# .ts/.tsx files inside ${BLOG_CHECKOUT_DIR}, which keeps Next's TypeScript
+# checker from trying to compile blog-repo source files as if they were
+# part of kev-o-ai-search. Earlier full-clone attempts hit
+# "Cannot find module 'mdx/types'" because Next walked the cloned
+# mdx-components.tsx looking for a devDep that doesn't exist here.
 if [ ! -d "$BLOG_CHECKOUT_DIR" ]; then
-  echo "[vercel-build] cloning ${BLOG_REPO_OWNER}/${BLOG_REPO_NAME} (${BLOG_REPO_BRANCH}) into ${BLOG_CHECKOUT_DIR}"
-  git clone --depth 1 --branch "$BLOG_REPO_BRANCH" "$BLOG_REPO_URL" "$BLOG_CHECKOUT_DIR"
+  echo "[vercel-build] sparse-cloning ${BLOG_REPO_OWNER}/${BLOG_REPO_NAME} (${BLOG_REPO_BRANCH}) into ${BLOG_CHECKOUT_DIR}"
+  echo "[vercel-build]   patterns: ${SPARSE_PATTERNS[*]}"
+  git clone \
+    --depth 1 \
+    --branch "$BLOG_REPO_BRANCH" \
+    --filter=blob:none \
+    --sparse \
+    --no-checkout \
+    "$BLOG_REPO_URL" "$BLOG_CHECKOUT_DIR"
+  git -C "$BLOG_CHECKOUT_DIR" sparse-checkout init --no-cone
+  git -C "$BLOG_CHECKOUT_DIR" sparse-checkout set "${SPARSE_PATTERNS[@]}"
+  git -C "$BLOG_CHECKOUT_DIR" checkout "$BLOG_REPO_BRANCH"
 else
   echo "[vercel-build] ${BLOG_CHECKOUT_DIR} already exists, pulling latest"
+  git -C "$BLOG_CHECKOUT_DIR" sparse-checkout set "${SPARSE_PATTERNS[@]}"
   git -C "$BLOG_CHECKOUT_DIR" fetch --depth 1 origin "$BLOG_REPO_BRANCH"
   git -C "$BLOG_CHECKOUT_DIR" reset --hard "origin/$BLOG_REPO_BRANCH"
 fi
