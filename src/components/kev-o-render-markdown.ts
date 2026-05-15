@@ -15,8 +15,6 @@
  * emits raw HTML, it gets neutralized before any markdown pass runs.
  */
 
-const MAIN_SITE = 'https://kevinmurphywebdev.com';
-
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -30,12 +28,14 @@ function renderInline(s: string): string {
   let out = escapeHtml(s);
   // Inline code first so we don't mangle markdown inside it
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // Links: [text](url)
+  // Links: [text](url). On the main site, internal links stay relative so
+  // Next.js can client-navigate without a full reload. External links open
+  // in a new tab.
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text: string, urlRaw: string) => {
     const url = urlRaw.trim();
     const isInternal = url.startsWith('/');
-    const absolute = isInternal ? `${MAIN_SITE}${url}` : url;
-    return `<a href="${absolute}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    if (isInternal) return `<a href="${url}">${text}</a>`;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
   });
   // Bold then italic (bold first so ** doesn't get consumed by *)
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');

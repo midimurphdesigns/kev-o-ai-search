@@ -116,3 +116,382 @@ html, body {
   opacity: 0.04;
   mix-blend-mode: overlay;
 }
+/* Kev-O streaming cursor — a blinking cyan caret at the tail of the
+ * actively-typing message. Caret blinks at 1s; matches the ⌘K chip's
+ * cyan accent. Hides when the stream completes (component-controlled). */
+.kevo-cursor {
+  animation: kevo-caret-blink 1s steps(2, start) infinite;
+}
+@keyframes kevo-caret-blink {
+  to { opacity: 0; }
+}
+
+/* ============================================================
+ * Kev-O avatar — alive cyan rhombus.
+ *
+ * Two nested rhombi (outer stroke + inner fill) at 45deg tilt.
+ * Riffs off the cursor's rhombus hover primitive so Kev-O reads
+ * as part of the cursor family. What makes it FEEL alive:
+ *   1. Continuous slow rotation — outer 18s CW, inner 24s CCW
+ *   2. Gradient inner fill so the shape has depth, not flatness
+ *   3. 1px inner highlight stroke on the outer for beveled craft
+ *   4. Subtle glow (drop-shadow) so the cyan reads luminous
+ *   5. Cursor-reactivity tilt via --kevo-tilt-x/y (set by JS hook)
+ *   6. Occasional 'intelligence beat' — sharp 90° flip every ~10s
+ * ============================================================ */
+
+.kevo-avatar {
+  --kevo-pulse-boost: calc(var(--kevo-pulse, 0) * 0.4);
+  --kevo-tilt-x: 0deg;
+  --kevo-tilt-y: 0deg;
+  /* Focus scale piped through CSS var so the rotation keyframes can
+   * read it without their transform getting overridden by a static
+   * focus-state rule. Transitions smoothly from 1 → 1.08 on focus. */
+  --kevo-focus-scale: 1;
+  --kevo-inner-focus-scale: 1;
+  --kevo-glow-strength: 0.3;
+  transition:
+    --kevo-focus-scale 0.65s cubic-bezier(0.34, 1.2, 0.4, 1),
+    --kevo-inner-focus-scale 0.65s cubic-bezier(0.34, 1.2, 0.4, 1);
+}
+
+@property --kevo-glow-strength {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0.3;
+}
+
+/* Glow lives on the OUTER rhombus so it haloes the outline, not the
+ * filled inner. Pulses variably on a 5.4s loop with asymmetric stops
+ * and a brief ramp-down dip at 70% so it doesn't feel metronome.
+ * Hover-state floor below overrides the var to a held 0.7. */
+@keyframes kevo-outer-glow {
+  0%, 100% { --kevo-glow-strength: 0.28; }
+  18% { --kevo-glow-strength: 0.45; }
+  37% { --kevo-glow-strength: 0.68; }
+  55% { --kevo-glow-strength: 0.4; }
+  70% { --kevo-glow-strength: 0.22; }
+  85% { --kevo-glow-strength: 0.55; }
+}
+
+/* Register the custom property so it can transition (Chromium/Safari
+ * need this for var()-based transition to interpolate). */
+@property --kevo-focus-scale {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+@property --kevo-inner-focus-scale {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+
+/* Rotation wrappers — own the continuous spin + beat-driven shadow
+ * pulses. The actual rhombus shape inside them handles scale + color.
+ * Splitting rotation and scale onto separate elements means scale
+ * changes (e.g. focus state, beat trails) never interrupt the rotation
+ * mid-cycle. */
+.kevo-spin {
+  display: block;
+  transform-origin: center;
+  will-change: transform;
+}
+
+/* When the parent .kevo-card is hovered, bump the focus-scale CSS
+ * var on the nested avatar. This drives the same smooth interpolation
+ * as the focus data-state (via @property registered vars) without
+ * actually changing React state — which would restart the keyframe
+ * animations and snap the rotation. */
+.kevo-card:hover .kevo-avatar,
+.kevo-card:focus-visible .kevo-avatar {
+  --kevo-focus-scale: 1.08;
+  --kevo-inner-focus-scale: 1.12;
+}
+/* Override the glow strength via the outer rhombus on hover. Holds
+ * at 0.75; the animation keeps running but resolves against this
+ * higher value. */
+.kevo-card:hover .kevo-rhombus--outer,
+.kevo-card:focus-visible .kevo-rhombus--outer {
+  --kevo-glow-strength: 0.75;
+}
+
+.kevo-spin--outer {
+  /* Variable rotation choreography:
+   *   - Accelerates dramatically, holds, decelerates
+   *   - Brief pause at the apex
+   *   - REVERSES direction
+   *   - Pauses again, reverses back
+   *   - Slow drift, then snap into the next full rotation
+   * Each segment carries its own cubic-bezier inertia for physical
+   * feel. Total loop ~22.7s — prime period so it never visibly
+   * synchronizes with the inner or the glow. */
+  animation: kevo-outer-rotate 22.7s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 45deg));
+  transition: transform 0.65s cubic-bezier(0.34, 1.2, 0.4, 1);
+}
+
+.kevo-spin--inner {
+  /* Different period (17.3s) + different choreography so the two
+   * rhombi never lock into visible sync. Inner does its OWN reversal
+   * pattern, accelerations, and pauses — independent rhythm. */
+  animation: kevo-inner-rotate 17.3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  transform: rotate(45deg);
+}
+
+.kevo-rhombus {
+  border-radius: 1.5px;
+  transform-origin: center;
+  will-change: transform, opacity;
+  /* Scale-only transform on the shape; the rotation lives on the
+   * .kevo-spin wrapper above. Smoothly transitions on focus / state
+   * changes without interrupting rotation. */
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity var(--duration-base) ease;
+}
+
+.kevo-rhombus--outer {
+  border: solid var(--color-accent);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  opacity: calc(0.95 + var(--kevo-pulse-boost));
+  transform: scale(var(--kevo-focus-scale, 1));
+  /* Glow lives on the outer rhombus — haloes the outline stroke,
+   * which is what you actually want to glow. */
+  filter: drop-shadow(0 0 12px rgba(77, 255, 255, var(--kevo-glow-strength)));
+  animation: kevo-outer-glow 5.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  transition: transform 0.65s cubic-bezier(0.34, 1.2, 0.4, 1);
+}
+
+/* Trail pulse — a third rhombus that grows OUTWARD from the outer
+ * shape, fading as it expands. Reads as a pulse coming toward the
+ * viewer. Period is a prime ~3.8s so it never falls into visible
+ * lockstep with the rotation or glow cycles. Physics-feeling ease:
+ * fast initial expansion, decelerating slowdown as energy dissipates. */
+.kevo-trail {
+  border: solid var(--color-accent);
+  border-radius: 2px;
+  opacity: 0;
+  pointer-events: none;
+  animation: kevo-trail-pulse 3.8s cubic-bezier(0.16, 0.84, 0.44, 1) infinite;
+}
+
+.kevo-scan {
+  display: none;
+}
+
+.kevo-rhombus--inner {
+  /* Gradient inner fill — bright cyan at top-left bleeding to a
+   * darker cyan at bottom-right. Gives the rhombus depth and
+   * reads as a polished brand object, not a flat shape. */
+  background: linear-gradient(
+    135deg,
+    rgba(77, 255, 255, 1) 0%,
+    rgba(77, 255, 255, 0.65) 70%,
+    rgba(77, 255, 255, 0.45) 100%
+  );
+  opacity: calc(0.85 + var(--kevo-pulse-boost));
+  transform: scale(var(--kevo-inner-focus-scale, 1));
+}
+
+/* State: focus — glow strengthens, scale ramps up via CSS var, rotation
+ * slows. Rotation lives on .kevo-spin so its animation-duration is what
+ * we adjust; the rhombus shape itself only handles scale. Nothing
+ * overrides `transform` directly, so the rotation never snaps. */
+.kevo-avatar[data-state='focus'] {
+  filter: drop-shadow(0 0 10px rgba(77, 255, 255, 0.4));
+  --kevo-focus-scale: 1.08;
+  --kevo-inner-focus-scale: 1.12;
+}
+.kevo-avatar[data-state='focus'] .kevo-spin--outer {
+  animation-duration: 12s, 6.3s, 23.7s;
+}
+.kevo-avatar[data-state='focus'] .kevo-spin--inner {
+  animation-duration: 16s;
+}
+.kevo-avatar[data-state='focus'] .kevo-rhombus--outer,
+.kevo-avatar[data-state='focus'] .kevo-rhombus--inner {
+  opacity: 1;
+}
+
+/* State: thinking — outer accelerates dramatically, inner pulses */
+.kevo-avatar[data-state='thinking'] {
+  filter: drop-shadow(0 0 12px rgba(77, 255, 255, 0.5));
+}
+.kevo-avatar[data-state='thinking'] .kevo-spin--outer {
+  animation: kevo-outer-rotate 2.4s linear infinite;
+}
+.kevo-avatar[data-state='thinking'] .kevo-rhombus--outer {
+  opacity: 1;
+}
+.kevo-avatar[data-state='thinking'] .kevo-rhombus--inner {
+  animation: kevo-inner-pulse 0.8s ease-in-out infinite;
+  opacity: 1;
+}
+
+/* State: streaming — outer keeps spinning, inner becomes a horizontal
+ * stretching beam reading as 'data passing through' */
+.kevo-avatar[data-state='streaming'] {
+  filter: drop-shadow(0 0 14px rgba(77, 255, 255, 0.55));
+}
+.kevo-avatar[data-state='streaming'] .kevo-spin--outer {
+  animation: kevo-outer-rotate 4s linear infinite;
+}
+.kevo-avatar[data-state='streaming'] .kevo-rhombus--outer {
+  opacity: 1;
+}
+.kevo-avatar[data-state='streaming'] .kevo-rhombus--inner {
+  animation: kevo-inner-stream 1.4s ease-in-out infinite;
+  opacity: 1;
+}
+
+/* State: error — color drops, motion stops, glow vanishes */
+.kevo-avatar[data-state='error'] {
+  filter: drop-shadow(0 0 0 transparent);
+}
+.kevo-avatar[data-state='error'] .kevo-spin--outer,
+.kevo-avatar[data-state='error'] .kevo-spin--inner {
+  animation: none;
+}
+.kevo-avatar[data-state='error'] .kevo-rhombus--outer {
+  border-color: var(--color-ink-faint);
+  opacity: 0.4;
+  transform: scale(0.92);
+  box-shadow: none;
+}
+.kevo-avatar[data-state='error'] .kevo-rhombus--inner {
+  background: var(--color-ink-faint);
+  opacity: 0.35;
+  transform: scale(0.85);
+}
+
+/* Outer rotation choreography. Read the % stops + the angle deltas
+ * together to understand the motion:
+ *
+ *   0%  → 45°    starting position
+ *   8%  → 165°   accelerates HARD — 120° in 8% of the cycle
+ *   16% → 200°   decelerates
+ *   24% → 205°   nearly paused (only 5° in 8% of the cycle)
+ *   32% → 195°   REVERSES — angle decreases
+ *   44% → 145°   continuing reverse
+ *   48% → 140°   brief pause at the low end
+ *   60% → 260°   FORWARD AGAIN, this time slower and steadier
+ *   72% → 320°
+ *   80% → 318°   another mini-pause
+ *   88% → 360°
+ *   100%→ 405°   completes the full rotation (one cycle = 360°)
+ *
+ * Combined with the cubic-bezier ease between each pair, you get a
+ * choreography that reads as: lurch forward → pause → reverse → pause
+ * → forward again. Physical, intelligent, never metronome. */
+@keyframes kevo-outer-rotate {
+  0%   { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 45deg)); }
+  8%   { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 165deg)); }
+  16%  { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 200deg)); }
+  24%  { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 205deg)); }
+  32%  { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 195deg)); }
+  44%  { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 145deg)); }
+  48%  { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 140deg)); }
+  60%  { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 260deg)); }
+  72%  { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 320deg)); }
+  80%  { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 318deg)); }
+  88%  { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 360deg)); }
+  100% { transform: rotate(calc(var(--kevo-tilt-x, 0deg) + 405deg)); }
+}
+
+/* Inner rotation choreography — different from the outer so the
+ * two never lock into visible sync. The inner is more languid:
+ * longer pauses, fewer reversals, opposite primary direction.
+ *
+ *   0%   → 45°    start
+ *   12%  → -45°   gentle CCW
+ *   20%  → -50°   pause
+ *   28%  → -10°   slight CW micro-correction
+ *   40%  → -170°  back to CCW, steady
+ *   52%  → -180°  brief pause
+ *   56%  → -130°  CW reversal
+ *   68%  → -210°  back to CCW
+ *   80%  → -270°
+ *   100% → -315°  completes a full counter-rotation
+ */
+@keyframes kevo-inner-rotate {
+  0%   { transform: rotate(45deg); }
+  12%  { transform: rotate(-45deg); }
+  20%  { transform: rotate(-50deg); }
+  28%  { transform: rotate(-10deg); }
+  40%  { transform: rotate(-170deg); }
+  52%  { transform: rotate(-180deg); }
+  56%  { transform: rotate(-130deg); }
+  68%  { transform: rotate(-210deg); }
+  80%  { transform: rotate(-270deg); }
+  100% { transform: rotate(-315deg); }
+}
+/* Beat tracks — small beats fire on the 6.3s cycle, large on 23.7s.
+ * Both ramp UP and DOWN within a tiny percentage window so the
+ * resting motion is dominated by the rotation animation; the beats
+ * only emerge briefly. */
+@keyframes kevo-beat-small {
+  0%, 90% { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+  95% {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+      0 0 8px rgba(77, 255, 255, 0.5);
+  }
+  100% { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+}
+@keyframes kevo-beat-large {
+  0%, 92% { /* idle */ }
+  96% {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+      0 0 14px rgba(77, 255, 255, 0.8);
+  }
+  100% { /* return */ }
+}
+/* Trail pulse — starts at the outer's size, scales out to 1.7x,
+ * fades during the expansion. Eased so the ripple decelerates as
+ * it expands (looks like it's losing energy outward, which reads
+ * natural). Repeats every 3.5s. */
+@keyframes kevo-trail-pulse {
+  0% { opacity: 0; transform: scale(1); }
+  8% { opacity: 0.6; transform: scale(1.02); }
+  85% { opacity: 0; transform: scale(1.65); }
+  100% { opacity: 0; transform: scale(1.65); }
+}
+@keyframes kevo-inner-pulse {
+  0%, 100% { transform: scale(0.85); opacity: 0.7; }
+  50% { transform: scale(1.18); opacity: 1; }
+}
+@keyframes kevo-inner-stream {
+  0%, 100% { transform: scaleX(1); opacity: 0.85; }
+  50% { transform: scaleX(1.5); opacity: 1; }
+}
+
+/* ============================================================
+ * Tasteful scrollbar for the Kev-O command palette body region.
+ * Thin, brand-toned, only visible when scroll is possible.
+ * Firefox uses scrollbar-color/scrollbar-width; WebKit uses the
+ * ::-webkit-scrollbar pseudo-elements. Same visual intent both.
+ * ============================================================ */
+.kevo-palette-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-divider) transparent;
+}
+.kevo-palette-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.kevo-palette-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.kevo-palette-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-divider);
+  border-radius: 0;
+  /* Tiny transparent inset border so the thumb has breathing room
+   * from the scrollbar track edges — reads as restrained, not chunky. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.kevo-palette-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+  background-clip: padding-box;
+}

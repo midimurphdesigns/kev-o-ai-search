@@ -1,12 +1,28 @@
 'use client';
 
+/**
+ * Subdomain Kev-O chat surface.
+ *
+ * The brain lives at kevinmurphywebdev.com/api/kev-o; this app proxies via
+ * /api/chat so we don't pay the cross-origin cost from the browser. UI
+ * components are copied from the main site (rhombus avatar, streamfield
+ * reveal, brand-safe error parser) so the two surfaces stay visually
+ * identical. See ../../blog-portfolio-v3/src/components/KevOChat.tsx for
+ * the richer variant; this one is intentionally trimmed (no pageContext,
+ * no compact mode, no auto-submit) because the subdomain is a single
+ * full-page conversation.
+ */
+
 import { useChat } from 'ai/react';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { KevOAvatar, type KevOState } from './KevOAvatar';
+import { KevOPortrait } from './KevOPortrait';
+import { KevOMessageBody } from './KevOMessageBody';
+import type { KevOState } from './KevOAvatar';
+import { parseKevOError } from '@/lib/kev-o-error';
+
 const KEVO_GREETING =
-  "Alright, I'm Kev-O. I know everything Kevin has put on the public record. Ask me about the federal-scale work, the open-source AI artifacts, why an anthropology major writes TypeScript, whatever. Try to stump me.";
-import { renderMessageHtml } from './render-markdown';
+  "Alright, I'm Kev-O. I know everything Kevin has put on the public record. Ask me anything.";
 
 type Props = {
   starters: string[];
@@ -23,20 +39,24 @@ export function KevOChat({ starters }: Props) {
     setInput,
   } = useChat({
     api: '/api/chat',
-    onError: (err) => {
-      setError(err.message || 'Kev-O hit a snag. Try again in a moment.');
-    },
+    onError: (err) => setError(parseKevOError(err)),
     onResponse: () => setError(null),
   });
 
-  const state: KevOState = error ? 'error' : isLoading ? (messages.at(-1)?.role === 'user' ? 'thinking' : 'streaming') : 'idle';
+  const state: KevOState = error
+    ? 'error'
+    : isLoading
+      ? messages.at(-1)?.role === 'user'
+        ? 'thinking'
+        : 'streaming'
+      : 'idle';
 
   const endRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, isLoading]);
 
-  const submitStarter = (text: string) => {
+  const submitStarter = (text: string): void => {
     setInput(text);
     setTimeout(() => {
       const form = document.getElementById('kevo-form') as HTMLFormElement | null;
@@ -47,7 +67,7 @@ export function KevOChat({ starters }: Props) {
   return (
     <div className="flex flex-col gap-10">
       <div className="flex items-end gap-6">
-        <KevOAvatar state={state} size={84} />
+        <KevOPortrait state={state} size={84} />
         <p className="font-display italic text-[clamp(22px,2.6vw,28px)] leading-[1.2] text-[color:var(--color-ink-muted)]">
           {KEVO_GREETING}
         </p>
@@ -72,42 +92,65 @@ export function KevOChat({ starters }: Props) {
       ) : (
         <ol className="flex flex-col gap-10">
           <AnimatePresence initial={false}>
-            {messages.map((m) => (
-              <motion.li
-                key={m.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              >
-                {m.role === 'user' ? (
-                  <div className="border-l-2 border-[color:var(--color-divider)] pl-5">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--color-ink-faint)]">
-                      you
-                    </p>
-                    <p className="mt-2 text-[17px] leading-relaxed text-[color:var(--color-ink)]">
-                      {m.content}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="border-l-2 border-[color:var(--color-accent)] pl-5">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--color-accent)]">
-                      kev-o
-                    </p>
-                    <div
-                      className="kevo-prose mt-2 text-[17px] leading-relaxed text-[color:var(--color-ink)]"
-                      dangerouslySetInnerHTML={{ __html: renderMessageHtml(m.content) }}
-                    />
-                  </div>
-                )}
-              </motion.li>
-            ))}
+            {messages.map((m, i) => {
+              const isLastAssistant =
+                i === messages.length - 1 && m.role === 'assistant';
+              const isStreamingNow = isLastAssistant && isLoading;
+              return (
+                <motion.li
+                  key={m.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  {m.role === 'user' ? (
+                    <div className="border-l-2 border-[color:var(--color-divider)] pl-5">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--color-ink-faint)]">
+                        you
+                      </p>
+                      <p className="mt-2 text-[17px] leading-relaxed text-[color:var(--color-ink)]">
+                        {m.content}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="border-l-2 border-[color:var(--color-accent)] pl-5">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--color-accent)]">
+                        kev-o
+                      </p>
+                      <div className="mt-2 text-[17px] leading-relaxed text-[color:var(--color-ink)]">
+                        <KevOMessageBody content={m.content} isStreaming={isStreamingNow} />
+                      </div>
+                    </div>
+                  )}
+                </motion.li>
+              );
+            })}
           </AnimatePresence>
           <div ref={endRef} />
         </ol>
       )}
 
       {error ? (
-        <p className="font-mono text-[12px] text-[color:var(--color-ink-faint)]">{error}</p>
+        <div
+          role="status"
+          aria-live="polite"
+          className="border-l-2 border-[color:var(--color-accent)] pl-5"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--color-accent)]">
+            kev-o
+          </p>
+          <p className="mt-2 text-[16px] leading-relaxed text-[color:var(--color-ink)]">
+            {error}
+          </p>
+          <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-ink-faint)]">
+            <a
+              href="https://kevinmurphywebdev.com/contact"
+              className="border-b border-[color:var(--color-divider)] transition-colors duration-[var(--duration-base)] hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]"
+            >
+              email Kevin directly →
+            </a>
+          </p>
+        </div>
       ) : null}
 
       <form id="kevo-form" onSubmit={handleSubmit} className="sticky bottom-6">
