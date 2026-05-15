@@ -86,15 +86,18 @@ async function main() {
 }
 
 async function stageReadmes(dir: string): Promise<void> {
-  const token = process.env.GITHUB_TOKEN;
+  // README fetches are anonymous on purpose. All five repos in REPOS are
+  // public OSS — the unauthenticated 60 req/hr cap is plenty for 5 calls
+  // per build. Keeping this path token-free means adding a new public OSS
+  // repo to the corpus only requires editing the REPOS array above; no
+  // token allowlist update needed. The PAT in GITHUB_TOKEN is reserved
+  // for the one place it's actually needed: cloning the private blog
+  // content repo in scripts/vercel-build.sh.
   for (const { owner, repo } of REPOS) {
     const url = `https://api.github.com/repos/${owner}/${repo}/readme`;
     try {
       const res = await fetch(url, {
-        headers: {
-          Accept: 'application/vnd.github.raw',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { Accept: 'application/vnd.github.raw' },
       });
       if (!res.ok) {
         console.warn(`[corpus] skip ${repo}: ${res.status} ${res.statusText}`);
