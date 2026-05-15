@@ -1,0 +1,118 @@
+@import 'tailwindcss';
+
+/**
+ * Brand tokens mirrored from blog-portfolio-v3 (ADR-023 + ADR-029).
+ * Kev-O lives at kev-o.kevinmurphywebdev.com and must read as the same
+ * brand: obsidian canvas, bone ink, single cyan accent, three-tier type.
+ * Do NOT drift these values — copy/paste updates from the main site if
+ * they change.
+ */
+@theme {
+  --color-canvas: #0a0a0b;
+  --color-canvas-elev-1: #13131a;
+  --color-canvas-elev-2: #1b1b23;
+  --color-ink: #f5f1ea;
+  --color-ink-muted: #a8a39a;
+  --color-ink-faint: #807a72;
+  --color-accent: #4dffff;
+  --color-divider: #2a2a33;
+
+  --font-display: 'Migra', 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-body: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'Menlo', monospace;
+
+  --duration-base: 200ms;
+  --duration-cinema: 600ms;
+  --ease-cinema: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('https://fonts.gstatic.com/s/spacegrotesk/v16/V8mDoQDjQSkFtoMM3T6r8E7mF71Q-gOoraIAEj7oUUxjLPzu.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('https://fonts.gstatic.com/s/geistmono/v3/or3yL_z9NLDhIWqlJmRMzNQ8wOI.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://fonts.gstatic.com/s/instrumentserif/v4/jizGRl1AONtU84MnDhEgmIVQHv9hF5Lcgg.woff2') format('woff2');
+}
+
+html, body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-canvas);
+}
+
+/* Subtle grain — same recipe as main site. Pointer-events-none, fixed,
+ * z-50, so it never interferes with scrolling or interactions. */
+.kevo-prose p { margin-block: 0.5em; }
+.kevo-prose p:first-child { margin-top: 0; }
+.kevo-prose ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.75em 0;
+}
+.kevo-prose ul li {
+  position: relative;
+  padding-left: 1.25em;
+  margin-block: 0.25em;
+}
+.kevo-prose ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.7em;
+  width: 8px;
+  height: 1px;
+  background: var(--color-ink-faint);
+}
+.kevo-prose a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--color-divider);
+  text-underline-offset: 4px;
+  transition: color var(--duration-base), text-decoration-color var(--duration-base);
+}
+.kevo-prose a:hover {
+  color: var(--color-accent);
+  text-decoration-color: var(--color-accent);
+}
+.kevo-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--color-canvas-elev-1);
+  padding: 0.15em 0.35em;
+  border-radius: 2px;
+}
+
+.grain::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  background-image: url('/grain.png');
+  background-repeat: repeat;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+}
